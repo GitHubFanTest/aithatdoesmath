@@ -41,7 +41,8 @@ def test_model(model):
     test_input = torch.tensor([[30.0, 40.0]])  # Test input
     with torch.no_grad():
         prediction = model(test_input)
-    print(f"Prediction: {prediction.item()}, Expected: 70")
+    rounded_prediction = round(prediction.item())  # Round to nearest integer
+    print(f"Prediction: {rounded_prediction}, Expected: 70")
 
 # Main script
 if __name__ == "__main__":
