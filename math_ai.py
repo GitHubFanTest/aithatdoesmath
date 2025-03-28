@@ -1,57 +1,65 @@
 import torch
 import torch.nn as nn
+import torch.optim as optim
+from torch.utils.data import DataLoader, TensorDataset
+import random
 
-# Step 1: Generate the dataset for addition
-def generate_addition_data(num_samples=1000):
-    inputs = torch.randint(0, 100, (num_samples, 2), dtype=torch.float32)  # Random pairs of numbers
-    targets = inputs[:, 0] + inputs[:, 1]  # Sum of the numbers
-    return inputs, targets
+# Generate a dataset of 10,000 random (a, b) pairs and their sums
+num_samples = 10000
+x_train = []
+y_train = []
 
-# Step 2: Define the Model
+for _ in range(num_samples):
+    a = random.randint(0, 500)  # Random number between 0 and 500
+    b = random.randint(0, 500)
+    x_train.append([a, b])
+    y_train.append([a + b])
+
+# Convert to PyTorch tensors
+x_train = torch.tensor(x_train, dtype=torch.float32)
+y_train = torch.tensor(y_train, dtype=torch.float32)
+
+# Create DataLoader for mini-batch training
+batch_size = 32
+dataset = TensorDataset(x_train, y_train)
+dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+
+# Define the model
 class MathModel(nn.Module):
     def __init__(self):
         super(MathModel, self).__init__()
-        self.fc1 = nn.Linear(2, 64)  # Input: 2 numbers, Output: 64 neurons
-        self.fc2 = nn.Linear(64, 1)  # Final output: 1 number (result of addition)
+        self.fc1 = nn.Linear(2, 64)  # Input: (a, b)
+        self.fc2 = nn.Linear(64, 128)
+        self.fc3 = nn.Linear(128, 1)  # Output: sum(a, b)
+        self.activation = nn.ReLU()
 
     def forward(self, x):
-        x = torch.relu(self.fc1(x))
-        x = self.fc2(x)
+        x = self.activation(self.fc1(x))
+        x = self.activation(self.fc2(x))
+        x = self.fc3(x)
         return x
 
-# Step 3: Create a function to train the model
-def train_model(model, inputs, targets, num_epochs=1000, lr=0.001):
-    criterion = nn.MSELoss()  # For regression tasks
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+# Initialize model, loss function, and optimizer
+model = MathModel()
+criterion = nn.MSELoss()
+optimizer = optim.Adam(model.parameters(), lr=0.001)
 
-    for epoch in range(num_epochs):
-        model.train()
-        optimizer.zero_grad()
-        outputs = model(inputs)
-        loss = criterion(outputs.squeeze(), targets)  # Remove extra dimension in outputs
-        loss.backward()
-        optimizer.step()
+# Training loop
+epochs = 5000
+for epoch in range(epochs):
+    for data, target in dataloader:
+        optimizer.zero_grad()  # Clear gradients
+        output = model(data)  # Forward pass
+        loss = criterion(output, target)  # Compute loss
+        loss.backward()  # Backpropagation
+        optimizer.step()  # Update weights
 
-        if (epoch + 1) % 100 == 0:
-            print(f"Epoch [{epoch+1}/{num_epochs}], Loss: {loss.item():.4f}")
+    # Print progress
+    if (epoch+1) % 1000 == 0:
+        print(f"Epoch [{epoch+1}/{epochs}], Loss: {loss.item():.4f}")
 
-# Step 4: Test the trained model
-def test_model(model):
-    model.eval()
-    test_input = torch.tensor([[30.0, 40.0]])  # Test input
-    with torch.no_grad():
-        prediction = model(test_input)
-    rounded_prediction = round(prediction.item())  # Round to nearest integer
-    print(f"Prediction: {rounded_prediction}, Expected: 70")
-
-# Main script
-if __name__ == "__main__":
-    # Step 5: Generate training data
-    inputs, targets = generate_addition_data()
-
-    # Step 6: Instantiate and train the model
-    model = MathModel()
-    train_model(model, inputs, targets)
-
-    # Step 7: Evaluate the model's performance
-    test_model(model)
+# Test the model
+model.eval()
+test_input = torch.tensor([[346.0, 464.0]], dtype=torch.float32)  # Example input
+predicted = model(test_input).item()
+print(f"Prediction: {predicted:.4f}, Expected: 810")
